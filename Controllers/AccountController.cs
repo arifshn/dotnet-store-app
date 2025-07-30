@@ -1,6 +1,7 @@
 using API.DTO;
 using API.Entity;
 using API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,19 +21,23 @@ public class AccountController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginDTO model)
+    public async Task<ActionResult<UserDTO>> Login(LoginDTO model)
     {
         var user = await _userManager.FindByNameAsync(model.UserName);
 
         if (user == null)
         {
-            return BadRequest(new { message = "username hatalı" });
+            return BadRequest(new ProblemDetails { Title = "Username hatalı" });
         }
         var result = await _userManager.CheckPasswordAsync(user, model.Password);
 
         if (result)
         {
-            return Ok(new { token = await _tokenService.GenerateToken(user)});
+            return Ok(new UserDTO
+            {
+                Name = user.Name!,
+                Token = await _tokenService.GenerateToken(user)
+            });
         }
         return Unauthorized();
     }
@@ -58,5 +63,22 @@ public class AccountController : ControllerBase
             return StatusCode(201);
         }
         return BadRequest(result.Errors);
+    }
+
+    [Authorize]
+    [HttpGet("getUser")]
+    public async Task<ActionResult<UserDTO>> getUser()
+    {
+        var user = await _userManager.FindByNameAsync(User.Identity?.Name!);
+        if (user == null)
+        {
+            return BadRequest(new ProblemDetails { Title = "Username ya da parola hatalı" });
+        }
+
+        return new UserDTO
+        {
+            Name = user.Name!,
+            Token = await _tokenService.GenerateToken(user)
+        };
     }
 }
