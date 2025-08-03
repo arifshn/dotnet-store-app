@@ -33,10 +33,14 @@ public class AccountController : ControllerBase
 
         if (result)
         {
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "Customer";
+
             return Ok(new UserDTO
             {
                 Name = user.Name!,
-                Token = await _tokenService.GenerateToken(user)
+                Token = await _tokenService.GenerateToken(user),
+                Role = role
             });
         }
         return Unauthorized();
@@ -74,11 +78,14 @@ public class AccountController : ControllerBase
         {
             return BadRequest(new ProblemDetails { Title = "Username ya da parola hatalı" });
         }
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? "Customer";
 
         return new UserDTO
         {
             Name = user.Name!,
-            Token = await _tokenService.GenerateToken(user)
+            Token = await _tokenService.GenerateToken(user),
+            Role = role
         };
     }
 }
