@@ -41,56 +41,52 @@ public class ProductsController : ControllerBase
         return Ok(product);  
     }
 
-[HttpPost]
-public async Task<IActionResult> CreateProduct([FromBody] Product product)
-{
-    if (product == null)
+    [HttpPost]
+    public async Task<IActionResult> CreateProduct([FromBody] Product product)
     {
-                     return BadRequest();
+        if (product == null)
+        {
+            return BadRequest();
+        }
+
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
     }
 
-    _context.Products.Add(product);
-    await _context.SaveChangesAsync();
-
-    return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
-}
-
-  [HttpPut("{id}")]
-public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
-{
-    if (product == null || id != product.Id)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
     {
-        return BadRequest();
-    }
-    var existingProduct = await _context.Products.FindAsync(id);
-    if (existingProduct == null)
-    {
-        return NotFound();
-    }
-    existingProduct.Name = product.Name;
-    existingProduct.Description = product.Description;
-    existingProduct.Price = product.Price;
-    existingProduct.Stock = product.Stock;
-
-    _context.Products.Update(existingProduct);
-    await _context.SaveChangesAsync();
-
-    return NoContent();
-}
-
- [HttpDelete("{id}")]
-public async Task<IActionResult> DeleteProduct(int id)
-{
-    var product = await _context.Products.FindAsync(id);
-    if (product == null)
-    {
-        return NotFound();
+        if (product == null || id != product.Id)
+        {
+            return BadRequest();
+        }
+        var existingProduct = await _context.Products.FindAsync(id);
+        if (existingProduct == null)
+        {
+            return NotFound();
+        }
+        existingProduct.Name = product.Name;
+        existingProduct.Description = product.Description;
+        existingProduct.Price = product.Price;
+        existingProduct.Stock = product.Stock;
+        _context.Products.Update(existingProduct);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
-    _context.Products.Remove(product);
-    await _context.SaveChangesAsync();
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProduct(int id)
+    {
+        var product = await _context.Products.FindAsync(id);
+        if (product == null)
+        {
+            return NotFound();
+        }
 
-    return NoContent();
-}
+        _context.Products.Remove(product);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
 
 }
