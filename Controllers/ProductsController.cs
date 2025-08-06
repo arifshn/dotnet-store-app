@@ -21,8 +21,26 @@ public class ProductsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetProducts()
     {
-        var products = await _context.Products.ToListAsync();
-        return Ok(products);
+     var products = await _context.Products.Include(p => p.Category).ToListAsync();
+
+        var productDtos = products.Select(p => new ProductDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Description = p.Description,
+            Price = p.Price,
+            IsActive = p.IsActive,
+            ImageUrl = p.ImageUrl,
+            Stock = p.Stock,
+            CategoryId = p.CategoryId,
+            Category = new CategoryDto
+            {
+                Id = p.Category.Id,
+                KategoriAdi = p.Category.KategoriAdi,
+                Url = p.Category.Url
+            }
+        }).ToList();
+        return Ok(productDtos);
     }
 
     [HttpGet("{id}")]
@@ -32,7 +50,10 @@ public class ProductsController : ControllerBase
         {
             return NotFound();
         }
-        var product = await _context.Products.FindAsync(id);
+       var product = await _context.Products
+    .Include(p => p.Category)
+    .FirstOrDefaultAsync(p => p.Id == id);
+
 
         if (product == null)
         {

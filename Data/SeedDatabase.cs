@@ -5,7 +5,7 @@ namespace API.Data;
 
 public static class SeedDatabase
 {
-    public static async void Initialize(IApplicationBuilder app)
+    public static async Task Initialize(IApplicationBuilder app)
     {
         var userManager = app.ApplicationServices
         .CreateScope()
@@ -20,7 +20,7 @@ public static class SeedDatabase
         if (!roleManager.Roles.Any())
         {
             var customer = new AppRole { Name = "customer" };
-            var admin = new AppRole { Name = "Admin" };
+            var admin = new AppRole { Name = "admin" };
 
             await roleManager.CreateAsync(customer);
             await roleManager.CreateAsync(admin);
@@ -34,7 +34,7 @@ public static class SeedDatabase
             await userManager.CreateAsync(customer, "Customer_123");
             await userManager.AddToRoleAsync(customer, "customer");
             await userManager.CreateAsync(admin, "Admin_123");
-            await userManager.AddToRolesAsync(admin, new[] { "Admin", "customer" });
+            await userManager.AddToRoleAsync(admin , "admin" );
         }
 
     }

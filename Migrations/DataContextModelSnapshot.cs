@@ -160,6 +160,35 @@ namespace API.Migrations
                     b.ToTable("CartItem");
                 });
 
+            modelBuilder.Entity("API.Entity.Category", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("KategoriAdi")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Categories");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            KategoriAdi = "Elektronik",
+                            Url = "elektronik"
+                        });
+                });
+
             modelBuilder.Entity("API.Entity.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -248,6 +277,9 @@ namespace API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -269,12 +301,15 @@ namespace API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CategoryId");
+
                     b.ToTable("Products");
 
                     b.HasData(
                         new
                         {
                             Id = 1,
+                            CategoryId = 1,
                             Description = "açıklama",
                             ImageUrl = "1.jpg",
                             IsActive = true,
@@ -285,6 +320,7 @@ namespace API.Migrations
                         new
                         {
                             Id = 2,
+                            CategoryId = 1,
                             Description = "açıklama",
                             ImageUrl = "1.jpg",
                             IsActive = true,
@@ -295,6 +331,7 @@ namespace API.Migrations
                         new
                         {
                             Id = 3,
+                            CategoryId = 1,
                             Description = "açıklama",
                             ImageUrl = "1.jpg",
                             IsActive = true,
@@ -305,6 +342,7 @@ namespace API.Migrations
                         new
                         {
                             Id = 4,
+                            CategoryId = 1,
                             Description = "açıklama",
                             ImageUrl = "1.jpg",
                             IsActive = true,
@@ -456,6 +494,17 @@ namespace API.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("API.Entity.Product", b =>
+                {
+                    b.HasOne("API.Entity.Category", "Category")
+                        .WithMany("Products")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("API.Entity.AppRole", null)
@@ -510,6 +559,11 @@ namespace API.Migrations
             modelBuilder.Entity("API.Entity.Cart", b =>
                 {
                     b.Navigation("CartItems");
+                });
+
+            modelBuilder.Entity("API.Entity.Category", b =>
+                {
+                    b.Navigation("Products");
                 });
 
             modelBuilder.Entity("API.Entity.Order", b =>

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using API.Data;
 using API.Entity;
 using API.Middlewares;
@@ -53,7 +54,10 @@ builder.Services.AddAuthentication(x =>{
     };
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
+
 
 builder.Services.AddOpenApi();
 
@@ -89,6 +93,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-SeedDatabase.Initialize(app);
+await SeedDatabase.Initialize(app);
 
 app.Run();

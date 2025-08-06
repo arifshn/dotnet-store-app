@@ -9,12 +9,15 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
 {
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Cart> Carts => Set<Cart>();
-
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<Category> Categories => Set<Category>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Category>().HasData(
+            new Category { Id = 1, KategoriAdi = "Elektronik" ,Url="elektronik"}
+        );
 
         modelBuilder.Entity<Product>().HasData(
 
@@ -27,7 +30,8 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
                 ImageUrl="1.jpg",
                 Price=70000,
                 IsActive=true,
-                Stock=100
+                Stock=100,
+                CategoryId=1
             },
             new Product{
                 Id =2,
@@ -36,7 +40,8 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
                 ImageUrl="1.jpg",
                 Price=80000,
                 IsActive=true,
-                Stock=100
+                Stock=100,
+                CategoryId=1
             },
             new Product{
                 Id =3,
@@ -45,7 +50,8 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
                 ImageUrl="1.jpg",
                 Price=90000,
                 IsActive=true,
-                Stock=100
+                Stock=100,
+                CategoryId=1
             },
             new Product{
                 Id =4,
@@ -54,7 +60,8 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
                 ImageUrl="1.jpg",
                 Price=10000,
                 IsActive=true,
-                Stock=100
+                Stock=100,
+                CategoryId=1
             },
           }
         );
