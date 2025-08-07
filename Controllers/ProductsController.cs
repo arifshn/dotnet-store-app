@@ -26,7 +26,7 @@ public class ProductsController : ControllerBase
         var productDtos = products.Select(p => new ProductDto
         {
             Id = p.Id,
-            Name = p.Name,
+            Name = p.Name!,
             Description = p.Description,
             Price = p.Price,
             IsActive = p.IsActive,
@@ -62,38 +62,55 @@ public class ProductsController : ControllerBase
         return Ok(product);  
     }
 
-    [HttpPost]
-    public async Task<IActionResult> CreateProduct([FromBody] Product product)
+ [HttpPost]
+public async Task<IActionResult> CreateProduct([FromBody] ProductCreateDto dto)
+{
+    if (!ModelState.IsValid)
     {
-        if (product == null)
-        {
-            return BadRequest();
-        }
-
-        _context.Products.Add(product);
-        await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
+        return BadRequest(ModelState);
     }
+    var product = new Product
+    {
+        Name = dto.Name,
+        Description = dto.Description,
+        Price = dto.Price,
+        IsActive = dto.IsActive,
+        ImageUrl = dto.ImageUrl,
+        Stock = dto.Stock,
+        CategoryId = dto.CategoryId
+    };
+    _context.Products.Add(product);
+    await _context.SaveChangesAsync();
+    return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
+}
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
+    public async Task<IActionResult> UpdateProduct(int id, [FromBody] ProductUpdateDto dto)
     {
-        if (product == null || id != product.Id)
-        {
-            return BadRequest();
-        }
-        var existingProduct = await _context.Products.FindAsync(id);
-        if (existingProduct == null)
-        {
-            return NotFound();
-        }
-        existingProduct.Name = product.Name;
-        existingProduct.Description = product.Description;
-        existingProduct.Price = product.Price;
-        existingProduct.Stock = product.Stock;
-        _context.Products.Update(existingProduct);
-        await _context.SaveChangesAsync();
-        return NoContent();
+       
+    if (!ModelState.IsValid || id != dto.Id)
+    {
+        return BadRequest(ModelState);
+    }
+
+    var existingProduct = await _context.Products.FindAsync(id);
+    if (existingProduct == null)
+    {
+        return NotFound();
+    }
+
+    existingProduct.Name = dto.Name;
+    existingProduct.Description = dto.Description;
+    existingProduct.Price = dto.Price;
+    existingProduct.Stock = dto.Stock;
+    existingProduct.IsActive = dto.IsActive;
+    existingProduct.ImageUrl = dto.ImageUrl;
+    existingProduct.CategoryId = dto.CategoryId;
+
+    _context.Products.Update(existingProduct);
+    await _context.SaveChangesAsync();
+
+    return NoContent();
     }
 
     [HttpDelete("{id}")]

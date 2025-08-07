@@ -24,13 +24,17 @@ namespace API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<OrderDTO>>> GetOrder()
+        public async Task<ActionResult<List<OrderDTO>>> GetOrders()
         {
-            return await _context.Orders
-                        .Include(i => i.OrderItems)
-                        .OrderToDTO()
-                        .Where(i => i.CustomerId == User.Identity!.Name)
-                        .ToListAsync();
+        var query = _context.Orders
+                .Include(i => i.OrderItems)
+                .OrderToDTO();
+            if (!User.IsInRole("admin"))
+        {
+            query = query.Where(i => i.CustomerId == User.Identity!.Name);
+        }
+
+            return await query.ToListAsync();
         }
 
         [HttpGet("{id}")]
