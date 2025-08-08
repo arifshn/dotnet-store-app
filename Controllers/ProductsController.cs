@@ -87,11 +87,17 @@ public async Task<IActionResult> CreateProduct([FromBody] ProductCreateDto dto)
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateProduct(int id, [FromBody] ProductUpdateDto dto)
     {
+       var isCategoryValid = await _context.Categories.AnyAsync(c => c.Id == dto.CategoryId);
+if (!isCategoryValid)
+{
+    return BadRequest("Geçersiz kategori ID");
+}
+
        
     if (!ModelState.IsValid || id != dto.Id)
-    {
-        return BadRequest(ModelState);
-    }
+        {
+            return BadRequest(ModelState);
+        }
 
     var existingProduct = await _context.Products.FindAsync(id);
     if (existingProduct == null)
@@ -108,7 +114,15 @@ public async Task<IActionResult> CreateProduct([FromBody] ProductCreateDto dto)
     existingProduct.CategoryId = dto.CategoryId;
 
     _context.Products.Update(existingProduct);
+    try
+{
     await _context.SaveChangesAsync();
+}
+catch (DbUpdateException ex)
+{
+    Console.WriteLine("Inner exception: " + ex.InnerException?.Message);
+    return StatusCode(500, "Veritabanı hatası: " + ex.InnerException?.Message);
+}
 
     return NoContent();
     }

@@ -11,12 +11,13 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Favorite> Favorites { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<Category>().HasData(
-            new Category { Id = 1, KategoriAdi = "Elektronik" ,Url="elektronik"}
+            new Category { Id = 1, KategoriAdi = "Elektronik", Url = "elektronik" }
         );
 
         modelBuilder.Entity<Product>().HasData(
