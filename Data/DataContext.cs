@@ -12,6 +12,7 @@ public class DataContext(DbContextOptions options) : IdentityDbContext<AppUser,A
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Favorite> Favorites { get; set; }
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
