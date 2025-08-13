@@ -54,7 +54,18 @@ public class ProductsController : ControllerBase
     .Include(p => p.Category)
     .FirstOrDefaultAsync(p => p.Id == id);
 
-
+        var review = _context.Reviews
+                 .Where(r => r.ProductId == id)
+                 .Include(r => r.User)
+                 .Select(r => new Review
+                 {
+                     Id = r.Id,
+                     Point = r.Point,
+                     Comment = r.Comment,
+                     CommentDate = r.CommentDate,
+                     User = r.User,
+                     CustomerId = r.CustomerId
+                 }).ToList();
         if (product == null)
         {
             return NotFound();
