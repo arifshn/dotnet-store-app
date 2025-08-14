@@ -17,11 +17,36 @@ public class ProductsController : ControllerBase
     {
         _context = context;
     }
-
     [HttpGet]
-    public async Task<IActionResult> GetProducts()
+    public async Task<IActionResult> GetProducts(
+        [FromQuery] int? categoryId = null,
+        [FromQuery] string search = "",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 12)
     {
-     var products = await _context.Products.Include(p => p.Category).ToListAsync();
+        var query = _context.Products
+            .Include(p => p.Category)
+            .Where(p => p.IsActive);
+
+        if (categoryId.HasValue && categoryId.Value > 0)
+        {
+            query = query.Where(p => p.CategoryId == categoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(p => 
+                p.Name!.ToLower().Contains(searchLower) ||
+                (p.Description != null && p.Description.ToLower().Contains(searchLower))
+            );
+        }
+        var totalCount = await query.CountAsync();
+        var products = await query
+            .OrderBy(p => p.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
         var productDtos = products.Select(p => new ProductDto
         {
@@ -33,14 +58,23 @@ public class ProductsController : ControllerBase
             ImageUrl = p.ImageUrl,
             Stock = p.Stock,
             CategoryId = p.CategoryId,
-            Category = new CategoryDto
+            Category =  new CategoryDto
             {
                 Id = p.Category.Id,
                 KategoriAdi = p.Category.KategoriAdi,
                 Url = p.Category.Url
-            }
+            } 
         }).ToList();
-        return Ok(productDtos);
+        var response = new
+        {
+            products = productDtos,
+            totalCount = totalCount,
+            currentPage = page,
+            pageSize = pageSize,
+            totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+        };
+
+        return Ok(response);
     }
 
     [HttpGet("{id}")]
