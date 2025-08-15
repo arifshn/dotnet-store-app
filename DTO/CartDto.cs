@@ -14,5 +14,6 @@ public class CartItemDTO
     public decimal? Price { get; set; }
     public string? ImageUrl { get; set; }
     public int Quantity { get; set; }
+    public int Stock { get; set; }
 
 }
