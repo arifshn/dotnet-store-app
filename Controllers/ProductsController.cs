@@ -22,11 +22,18 @@ public class ProductsController : ControllerBase
         [FromQuery] int? categoryId = null,
         [FromQuery] string search = "",
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 12)
+        [FromQuery] int pageSize = 12,
+    [FromQuery] bool showInactive = false)
+        
     {
         var query = _context.Products
-            .Include(p => p.Category)
-            .Where(p => p.IsActive);
+        .Include(p => p.Category)
+        .AsQueryable();
+
+    if (!showInactive)
+    {
+        query = query.Where(p => p.IsActive);
+    }
 
         if (categoryId.HasValue && categoryId.Value > 0)
         {
@@ -119,7 +126,7 @@ public async Task<IActionResult> CreateProduct([FromBody] ProductCreateDto dto)
         Name = dto.Name,
         Description = dto.Description,
         Price = dto.Price,
-        IsActive = dto.IsActive,
+        IsActive = dto.Stock > 0 ? dto.IsActive : false,
         ImageUrl = dto.ImageUrl,
         Stock = dto.Stock,
         CategoryId = dto.CategoryId
@@ -137,14 +144,14 @@ if (!isCategoryValid)
 {
     return BadRequest("Geçersiz kategori ID");
 }
-
-       
     if (!ModelState.IsValid || id != dto.Id)
         {
             return BadRequest(ModelState);
         }
 
-    var existingProduct = await _context.Products.FindAsync(id);
+    var existingProduct = await _context.Products
+    .Include(p => p.Category)
+    .FirstOrDefaultAsync(p=> p.Id == id);
     if (existingProduct == null)
     {
         return NotFound();
@@ -154,22 +161,43 @@ if (!isCategoryValid)
     existingProduct.Description = dto.Description;
     existingProduct.Price = dto.Price;
     existingProduct.Stock = dto.Stock;
-    existingProduct.IsActive = dto.IsActive;
+    existingProduct.IsActive = dto.Stock > 0 ? dto.IsActive : false;
     existingProduct.ImageUrl = dto.ImageUrl;
     existingProduct.CategoryId = dto.CategoryId;
 
     _context.Products.Update(existingProduct);
-    try
-{
-    await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+    await _context.Entry(existingProduct)
+    .Reference(p => p.Category)
+    .LoadAsync();
 }
-catch (DbUpdateException ex)
-{
-    Console.WriteLine("Inner exception: " + ex.InnerException?.Message);
-    return StatusCode(500, "Veritabanı hatası: " + ex.InnerException?.Message);
-}
+        catch (DbUpdateException ex)
+        {
+            Console.WriteLine("Inner exception: " + ex.InnerException?.Message);
+            return StatusCode(500, "Veritabanı hatası: " + ex.Message);
+        }
 
-    return NoContent();
+    var updatedDto = new ProductDto
+    {
+        Id = existingProduct.Id,
+        Name = existingProduct.Name!,
+        Description = existingProduct.Description,
+        Price = existingProduct.Price,
+        IsActive = existingProduct.IsActive,
+        ImageUrl = existingProduct.ImageUrl,
+        Stock = existingProduct.Stock,
+        CategoryId = existingProduct.CategoryId,
+        Category = new CategoryDto
+        {
+            Id = existingProduct.Category.Id,
+            KategoriAdi = existingProduct.Category.KategoriAdi,
+            Url = existingProduct.Category.Url
+        }
+    };
+
+    return Ok(updatedDto);
     }
 
     [HttpDelete("{id}")]
