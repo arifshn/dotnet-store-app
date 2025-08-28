@@ -11,29 +11,34 @@ namespace API.Controllers;
 [Route("/api/[controller]")]
 public class ProductsController : ControllerBase
 {
-
+    private readonly ILogger<ProductsController> _logger;
     private readonly DataContext _context;
-    public ProductsController(DataContext context)
+
+    public ProductsController(DataContext context, ILogger<ProductsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
+
     [HttpGet]
     public async Task<IActionResult> GetProducts(
         [FromQuery] int? categoryId = null,
         [FromQuery] string search = "",
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 12,
-    [FromQuery] bool showInactive = false)
-        
+        [FromQuery] bool showInactive = false)
     {
-        var query = _context.Products
-        .Include(p => p.Category)
-        .AsQueryable();
+        _logger.LogInformation("GET /api/products çağrıldı. Page: {Page}, PageSize: {PageSize}, CategoryId: {CategoryId}, Search: {Search}, ShowInactive: {ShowInactive}",
+            page, pageSize, categoryId, search, showInactive);
 
-    if (!showInactive)
-    {
-        query = query.Where(p => p.IsActive);
-    }
+        var query = _context.Products
+            .Include(p => p.Category)
+            .AsQueryable();
+
+        if (!showInactive)
+        {
+            query = query.Where(p => p.IsActive);
+        }
 
         if (categoryId.HasValue && categoryId.Value > 0)
         {
@@ -43,17 +48,22 @@ public class ProductsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             var searchLower = search.ToLower();
-            query = query.Where(p => 
+            query = query.Where(p =>
                 p.Name!.ToLower().Contains(searchLower) ||
                 (p.Description != null && p.Description.ToLower().Contains(searchLower))
             );
         }
+
         var totalCount = await query.CountAsync();
+
         var products = await query
             .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        _logger.LogInformation("Toplam {TotalCount} ürün bulundu, sayfa {Page} için {ReturnedCount} ürün döndü",
+            totalCount, page, products.Count);
 
         var productDtos = products.Select(p => new ProductDto
         {
@@ -65,13 +75,14 @@ public class ProductsController : ControllerBase
             ImageUrl = p.ImageUrl,
             Stock = p.Stock,
             CategoryId = p.CategoryId,
-            Category =  new CategoryDto
+            Category = new CategoryDto
             {
                 Id = p.Category.Id,
                 KategoriAdi = p.Category.KategoriAdi,
                 Url = p.Category.Url
-            } 
+            }
         }).ToList();
+
         var response = new
         {
             products = productDtos,
@@ -85,133 +96,129 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetProducts(int? id)
+    public async Task<IActionResult> GetProductById(int? id)
     {
         if (id == null)
         {
+            _logger.LogWarning("GET /api/products/{id} çağrıldı ancak id null", id);
             return NotFound();
         }
-       var product = await _context.Products
-    .Include(p => p.Category)
-    .FirstOrDefaultAsync(p => p.Id == id);
 
-        var review = _context.Reviews
-                 .Where(r => r.ProductId == id)
-                 .Include(r => r.User)
-                 .Select(r => new Review
-                 {
-                     Id = r.Id,
-                     Point = r.Point,
-                     Comment = r.Comment,
-                     CommentDate = r.CommentDate,
-                     User = r.User,
-                     CustomerId = r.CustomerId
-                 }).ToList();
+        _logger.LogInformation("GET /api/products/{Id} çağrıldı", id);
+
+        var product = await _context.Products
+            .Include(p => p.Category)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
         if (product == null)
         {
+            _logger.LogWarning("Product bulunamadı. Id: {Id}", id);
             return NotFound();
         }
-        return Ok(product);  
+
+        _logger.LogInformation("Product bulundu. Id: {Id}, Name: {Name}", product.Id, product.Name);
+
+        return Ok(product);
     }
 
- [HttpPost]
-public async Task<IActionResult> CreateProduct([FromBody] ProductCreateDto dto)
-{
-    if (!ModelState.IsValid)
+    [HttpPost]
+    public async Task<IActionResult> CreateProduct([FromBody] ProductCreateDto dto)
     {
-        return BadRequest(ModelState);
+        _logger.LogInformation("POST /api/products çağrıldı. Product adı: {Name}", dto.Name);
+
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Geçersiz model state ile ürün oluşturulmaya çalışıldı.");
+            return BadRequest(ModelState);
+        }
+
+        var product = new Product
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            Price = dto.Price,
+            IsActive = dto.Stock > 0 ? dto.IsActive : false,
+            ImageUrl = dto.ImageUrl,
+            Stock = dto.Stock,
+            CategoryId = dto.CategoryId
+        };
+
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Yeni ürün oluşturuldu. Id: {Id}, Name: {Name}", product.Id, product.Name);
+
+        return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, product);
     }
-    var product = new Product
-    {
-        Name = dto.Name,
-        Description = dto.Description,
-        Price = dto.Price,
-        IsActive = dto.Stock > 0 ? dto.IsActive : false,
-        ImageUrl = dto.ImageUrl,
-        Stock = dto.Stock,
-        CategoryId = dto.CategoryId
-    };
-    _context.Products.Add(product);
-    await _context.SaveChangesAsync();
-    return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
-}
 
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateProduct(int id, [FromBody] ProductUpdateDto dto)
     {
-       var isCategoryValid = await _context.Categories.AnyAsync(c => c.Id == dto.CategoryId);
-if (!isCategoryValid)
-{
-    return BadRequest("Geçersiz kategori ID");
-}
-    if (!ModelState.IsValid || id != dto.Id)
+        _logger.LogInformation("PUT /api/products/{Id} çağrıldı", id);
+
+        if (!ModelState.IsValid || id != dto.Id)
         {
+            _logger.LogWarning("Geçersiz model state veya id uyuşmazlığı. Id: {Id}", id);
             return BadRequest(ModelState);
         }
 
-    var existingProduct = await _context.Products
-    .Include(p => p.Category)
-    .FirstOrDefaultAsync(p=> p.Id == id);
-    if (existingProduct == null)
-    {
-        return NotFound();
-    }
+        var isCategoryValid = await _context.Categories.AnyAsync(c => c.Id == dto.CategoryId);
+        if (!isCategoryValid)
+        {
+            _logger.LogWarning("Geçersiz kategori ID: {CategoryId}", dto.CategoryId);
+            return BadRequest("Geçersiz kategori ID");
+        }
 
-    existingProduct.Name = dto.Name;
-    existingProduct.Description = dto.Description;
-    existingProduct.Price = dto.Price;
-    existingProduct.Stock = dto.Stock;
-    existingProduct.IsActive = dto.Stock > 0 ? dto.IsActive : false;
-    existingProduct.ImageUrl = dto.ImageUrl;
-    existingProduct.CategoryId = dto.CategoryId;
+        var existingProduct = await _context.Products
+            .Include(p => p.Category)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
-    _context.Products.Update(existingProduct);
+        if (existingProduct == null)
+        {
+            _logger.LogWarning("Güncellenecek ürün bulunamadı. Id: {Id}", id);
+            return NotFound();
+        }
+
+        existingProduct.Name = dto.Name;
+        existingProduct.Description = dto.Description;
+        existingProduct.Price = dto.Price;
+        existingProduct.Stock = dto.Stock;
+        existingProduct.IsActive = dto.Stock > 0 ? dto.IsActive : false;
+        existingProduct.ImageUrl = dto.ImageUrl;
+        existingProduct.CategoryId = dto.CategoryId;
+
         try
         {
+            _context.Products.Update(existingProduct);
             await _context.SaveChangesAsync();
-    await _context.Entry(existingProduct)
-    .Reference(p => p.Category)
-    .LoadAsync();
-}
+            _logger.LogInformation("Ürün güncellendi. Id: {Id}, Name: {Name}", existingProduct.Id, existingProduct.Name);
+        }
         catch (DbUpdateException ex)
         {
-            Console.WriteLine("Inner exception: " + ex.InnerException?.Message);
+            _logger.LogError(ex, "Ürün güncellenirken veritabanı hatası. Id: {Id}", id);
             return StatusCode(500, "Veritabanı hatası: " + ex.Message);
         }
 
-    var updatedDto = new ProductDto
-    {
-        Id = existingProduct.Id,
-        Name = existingProduct.Name!,
-        Description = existingProduct.Description,
-        Price = existingProduct.Price,
-        IsActive = existingProduct.IsActive,
-        ImageUrl = existingProduct.ImageUrl,
-        Stock = existingProduct.Stock,
-        CategoryId = existingProduct.CategoryId,
-        Category = new CategoryDto
-        {
-            Id = existingProduct.Category.Id,
-            KategoriAdi = existingProduct.Category.KategoriAdi,
-            Url = existingProduct.Category.Url
-        }
-    };
-
-    return Ok(updatedDto);
+        return Ok(existingProduct);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProduct(int id)
     {
+        _logger.LogInformation("DELETE /api/products/{Id} çağrıldı", id);
+
         var product = await _context.Products.FindAsync(id);
         if (product == null)
         {
+            _logger.LogWarning("Silinecek ürün bulunamadı. Id: {Id}", id);
             return NotFound();
         }
 
         _context.Products.Remove(product);
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Ürün silindi. Id: {Id}, Name: {Name}", product.Id, product.Name);
+
         return NoContent();
     }
-
 }

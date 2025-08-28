@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using API.Entity;
 
@@ -16,6 +17,8 @@ namespace API.DTO
         public string? City { get; set; }
         public string? AddresLine { get; set; }
         public string? CustomerId { get; set; }
+
+ [JsonConverter(typeof(JsonStringEnumConverter))]
         public OrderStatus OrderStatus { get; set; } = OrderStatus.pending;
         public List<OrderItemDTO> OrderItems { get; set; } = new();
         public decimal SubTotal { get; set; }
