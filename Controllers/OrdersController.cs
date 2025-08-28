@@ -48,73 +48,90 @@ namespace API.Controllers
                         .FirstOrDefaultAsync();
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Order>> CreateOrder(CreateOrderDTO orderDTO)
+         [HttpPost]
+    public async Task<ActionResult<Order>> CreateOrder(CreateOrderDTO orderDTO)
+    {
+        var cart = await _context.Carts
+                    .Include(i => i.CartItems)
+                    .ThenInclude(i => i.Product)
+                    .Where(i => i.CustomerId == User.Identity!.Name)
+                    .FirstOrDefaultAsync();
+
+        if (cart == null) return BadRequest(new ProblemDetails { Title = "Problem getting cart" });
+
+        var items = new List<Entity.OrderItem>();
+
+        foreach (var item in cart.CartItems)
         {
-            var cart = await _context.Carts
-                        .Include(i => i.CartItems)
-                        .ThenInclude(i => i.Product)
-                        .Where(i => i.CustomerId == User.Identity!.Name)
-                        .FirstOrDefaultAsync();
+            var product = await _context.Products.FindAsync(item.ProductId);
 
-            if (cart == null) return BadRequest(new ProblemDetails { Title = "Problem getting cart" });
-
-            var items = new List<Entity.OrderItem>();
-
-            foreach (var item in cart.CartItems)
+            var orderItem = new Entity.OrderItem
             {
-                var product = await _context.Products.FindAsync(item.ProductId);
-
-                var orderItem = new Entity.OrderItem
-                {
-                    ProductId = product!.Id,
-                    ProductName = product.Name!,
-                    ProductImage = product.ImageUrl!,
-                    Price = product.Price,
-                    Quantity = item.Quantity
-                };
-
-                items.Add(orderItem);
-                product.Stock -= item.Quantity;
-            }
-
-            var subTotal = items.Sum(i => i.Price * i.Quantity);
-            var deliveryFee = 0;
-
-            var order = new Order
-            {
-                OrderItems = items,
-                CustomerId = User.Identity!.Name,
-                FistName = orderDTO.FistName,
-                LastName = orderDTO.LastName,
-                Phone = orderDTO.Phone,
-                City = orderDTO.City,
-                AddresLine = orderDTO.AddresLine,
-                SubTotal = subTotal,
-                DeliveryFree = deliveryFee
+                ProductId = product!.Id,
+                ProductName = product.Name!,
+                ProductImage = product.ImageUrl!,
+                Price = product.Price,
+                Quantity = item.Quantity
             };
 
-            var paymentResult = await ProcessPayment(orderDTO, cart);
-
-            if (paymentResult.Status == "failure")
-            {
-                return BadRequest(new ProblemDetails { Title = paymentResult.ErrorMessage });
-            }
-
-            order.ConversationId = paymentResult.ConversationId;
-            order.BasketId = paymentResult.BasketId;
-
-            _context.Orders.Add(order);
-            _context.Carts.Remove(cart);
-
-            var result = await _context.SaveChangesAsync() > 0;
-
-            if (result)
-                return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order.Id);
-
-            return BadRequest(new ProblemDetails { Title = "Problem getting order" });
+            items.Add(orderItem);
+            product.Stock -= item.Quantity;
         }
 
+        var subTotal = items.Sum(i => i.Price * i.Quantity);
+        var deliveryFee = 0;
+
+        var order = new Order
+        {
+            OrderItems = items,
+            CustomerId = User.Identity!.Name,
+            FistName = orderDTO.FistName,
+            LastName = orderDTO.LastName,
+            Phone = orderDTO.Phone,
+            City = orderDTO.City,
+            AddresLine = orderDTO.AddresLine,
+            SubTotal = subTotal,
+            DeliveryFree = deliveryFee,
+            OrderStatus = OrderStatus.pending 
+        };
+
+        var paymentResult = await ProcessPayment(orderDTO, cart);
+
+        if (paymentResult.Status == "failure")
+        {
+            order.OrderStatus = OrderStatus.PaymentFailed;
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+            return BadRequest(new ProblemDetails { Title = paymentResult.ErrorMessage });
+        }
+
+        order.ConversationId = paymentResult.ConversationId;
+        order.BasketId = paymentResult.BasketId;
+        order.OrderStatus = OrderStatus.Approved; 
+
+        _context.Orders.Add(order);
+        _context.Carts.Remove(cart);
+
+        var result = await _context.SaveChangesAsync() > 0;
+
+        if (result)
+            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order.Id);
+
+        return BadRequest(new ProblemDetails { Title = "Problem creating order" });
+    }
+
+    [HttpPut("{id}/status")]
+    public async Task<ActionResult> UpdateOrderStatus(int id, [FromBody] OrderStatus newStatus)
+    {
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order == null) return NotFound();
+
+        order.OrderStatus = newStatus;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = $"Order {id} status updated to {newStatus}" });
+    }
         private async Task<Payment> ProcessPayment(CreateOrderDTO model, Cart cart)
         {
 

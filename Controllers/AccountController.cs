@@ -57,6 +57,8 @@ public class AccountController : ControllerBase
 
             return Ok(new UserDTO
             {
+                Id = user.Id,
+                Email = user.Email!,
                 Name = user.Name!,
                 Token = await _tokenService.GenerateToken(user),
                 Role = role
@@ -64,8 +66,8 @@ public class AccountController : ControllerBase
         }
         return Unauthorized();
     }
-    
-     private async Task<Cart> GetOrCreate(string custId)
+
+    private async Task<Cart> GetOrCreate(string custId)
     {
         var cart = await _context.Carts
         .Include(i => i.CartItems)
@@ -80,11 +82,11 @@ public class AccountController : ControllerBase
             {
                 customerId = Guid.NewGuid().ToString();
                 var cookieOptions = new CookieOptions
-            {
-                Expires = DateTime.Now.AddMonths(1),
-                IsEssential = true
-            };
-            Response.Cookies.Append("customerId", customerId, cookieOptions);
+                {
+                    Expires = DateTime.Now.AddMonths(1),
+                    IsEssential = true
+                };
+                Response.Cookies.Append("customerId", customerId, cookieOptions);
             }
             cart = new Cart { CustomerId = customerId };
             _context.Carts.Add(cart);
@@ -92,12 +94,16 @@ public class AccountController : ControllerBase
         }
         return cart;
     }
-    
+
     [HttpPost("register")]
     public async Task<IActionResult> CreateUser(RegisterDTO model)
     {
         if (!ModelState.IsValid)
         {
+            var errors = string.Join(", ", ModelState.Values
+                               .SelectMany(v => v.Errors)
+                               .Select(e => e.ErrorMessage));
+            Console.WriteLine(errors);
             return BadRequest(ModelState);
         }
         var user = new AppUser
@@ -130,9 +136,54 @@ public class AccountController : ControllerBase
 
         return new UserDTO
         {
+            Id = user.Id,
+            Email = user.Email!,
             Name = user.Name!,
             Token = await _tokenService.GenerateToken(user),
             Role = role
         };
+    }
+
+[Authorize]
+[HttpPut("updateUser")]
+public async Task<IActionResult> updateUser(UpdateUserDTO model)
+{
+    var user = await _userManager.FindByNameAsync(User.Identity?.Name!);
+    if (user == null) return NotFound();
+
+    user.Name = model.Name ?? user.Name;
+
+    if (!string.IsNullOrEmpty(model.Email) && model.Email != user.Email)
+    {
+        var emailResult = await _userManager.SetEmailAsync(user, model.Email);
+        if (!emailResult.Succeeded)
+            return BadRequest(emailResult.Errors);
+    }
+
+    var result = await _userManager.UpdateAsync(user);
+    if (result.Succeeded)
+    {
+        return NoContent();
+    }
+    return BadRequest(result.Errors);
+}
+
+
+    [HttpPost("changePassword")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordDto model)
+    {
+        var user = await _userManager.FindByIdAsync(model.UserId);
+        if (user == null) return NotFound();
+        if (model.NewPassword != model.NewPasswordRestart)
+        {
+            return BadRequest(new ProblemDetails { Title = "Yeni parola ve yeni parola tekrarı eşleşmiyor." });
+        }
+        var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+        if (result.Succeeded)
+        {
+            return NoContent();
+        }
+        return BadRequest(result.Errors);
+
     }
 }

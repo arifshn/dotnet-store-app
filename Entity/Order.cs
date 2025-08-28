@@ -34,12 +34,15 @@ namespace API.Entity
         public int Quantity { get; set; }
       
     }
-    public enum OrderStatus
-    {
-        pending,
-        Approved,
-        PaymentFailed,
-        Completed
-    }
+  public enum OrderStatus
+{
+    pending,        
+    Approved,      
+    Preparing,     
+    Shipped,      
+    Delivered,      
+    PaymentFailed   
+}
+
 
 }
